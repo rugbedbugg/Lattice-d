@@ -1,22 +1,48 @@
 mod block;
 mod chain;
 mod watcher;
+mod storage;
 
 use chain::Blockchain;
+use storage::Storage;
 use std::sync::{Arc, Mutex};
 
 
 fn main() {
     println!("[Lattice-d] starting...");
 
-    let chain = Arc::new(Mutex::new(Blockchain::new()));
+    let store = Storage::new();
+
+    // Load existing chain or start fresh
+    let blockchain = match Storage::last_block() {
+        Some(last) => {
+            println!("[Lattice-d] Loaded existing chain ({} blocks)", last.index);
+            let mut c = Blockchain::new();
+            c.blocks[0] = last;
+            c
+        }
+        None => {
+            println!("[Lattice-d] Not existing chain found, starting fresh");
+            Blockchain::new()
+        }
+    };
+
+    let chain = Arc::new(Mutex::new(blockchain));
+    let store = Arc::new(Mutex::new(store));
     let watched_paths = vec!["/etc", "/var/log", "/bin", "/usr/bin"];
 
     watcher::watch(watched_paths, |event| {
         let mut c = chain.lock().unwrap();
+        let mut s = store.lock().unwrap();
+
         c.append(event.clone());
-        let latest = c.blocks.last().unwrap();
-        println!("[Lattice-d] Block #{} | {}", latest.index, latest.hash);
+
+        let latest = c.blocks.last().unwrap().clone();
+        let log_entry = format!("[Latttice-d] Block #{} | {}", latest.index, latest.hash);
+
+        println!("{}", log_entry);
+        s.append_log(&log_entry);
+        s.push(latest);
     });
 }
 
