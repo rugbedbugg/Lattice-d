@@ -5,10 +5,10 @@ use crate::block::Block;
 
 
 const STORAGE_DIR: &str   = "/var/lib/latticed";
-const CHAIN_FILE: &str    = "chain.json";       // jsonl = one block per line
-const LOG_FILE: &str      = "latticed.log";
-const MAX_SIZE_BYTES: u64 = 1_000_000;          // 1MB
-const FLUSH_EVERY: usize  = 50;                 // blocks per flush
+pub const CHAIN_FILE: &str    = "chain.jsonl";       // jsonl = one block per line
+pub const LOG_FILE: &str      = "latticed.log";
+pub const MAX_SIZE_BYTES: u64 = 1_000_000;          // 1MB
+pub const FLUSH_EVERY: usize  = 50;                 // blocks per flush
 
 
 pub struct Storage {
@@ -112,6 +112,40 @@ impl Storage {
             .last()
             .and_then(|line| serde_json::from_str(line).ok())
     }
+
+    //-----------------------------------------//
+    //--- chain segments oldest -> newest  ---//
+    //-----------------------------------------//
+    fn chain_segments() -> Vec<PathBuf> {
+        let mut segs = Vec::new();
+        for i in (1..=MAX_BACKUPS).rev() {
+            let p = Self::path(&format!("{}.bak.{}", CHAIN_FILE, i));
+            if p.exists() { segs.push(p); }
+        }
+        segs.push(Self::path(CHAIN_FILE));
+        segs
+    }
+
+    //-----------------------------------------------//
+    //--- load all chain blocks across rotations  ---//
+    //-----------------------------------------------//
+    // rotation moves older blocks into .bak.N files;
+    // verification must walk every segment so the full
+    // history is checked, not just the newest megabyte
+    pub fn read_chain_blocks() -> Vec<Block> {
+        let mut blocks = Vec::new();
+        for seg in Self::chain_segments() {
+            if !seg.exists() { continue; }
+            let contents = fs::read_to_string(&seg)
+                .expect("[Lattice-d] Failed to read chain file");
+            for line in contents.lines().filter(|l| !l.is_empty()) {
+                let block: Block = serde_json::from_str(line)
+                    .unwrap_or_else(|_| panic!("[Lattice-d] Failed to parse block in {:?}", seg));
+                blocks.push(block);
+            }
+        }
+        blocks
+    }
 }
 
 const MAX_BACKUPS: u32    = 3;
@@ -194,5 +228,25 @@ mod tests {
         let bak = Storage::path(&format!("{}.bak.1", CHAIN_FILE));
         assert!(bak.exists(), "bak.1 should exist after rotation");
         assert!(!p.exists(), "original should be gone after rotation");
+    }
+
+    #[test]
+    fn test_read_chain_blocks_walks_backups_in_order() {
+        let _s = Storage::new();
+        let mk = |idx: u64| {
+            serde_json::to_string(&dummy_block(idx, &"0".repeat(64))).unwrap()
+        };
+        std::fs::write(Storage::path(&format!("{}.bak.2", CHAIN_FILE)), format!("{}\n", mk(1))).unwrap();
+        std::fs::write(Storage::path(&format!("{}.bak.1", CHAIN_FILE)), format!("{}\n", mk(2))).unwrap();
+        std::fs::write(Storage::path(CHAIN_FILE), format!("{}\n", mk(3))).unwrap();
+
+        let blocks = Storage::read_chain_blocks();
+        let idxs: Vec<u64> = blocks.iter().map(|b| b.index).collect();
+        assert_eq!(idxs, vec![1, 2, 3]);
+
+        // cleanup so other tests start fresh
+        for f in [format!("{}.bak.2", CHAIN_FILE), format!("{}.bak.1", CHAIN_FILE), CHAIN_FILE.to_string()] {
+            let _ = std::fs::remove_file(Storage::path(&f));
+        }
     }
 }
