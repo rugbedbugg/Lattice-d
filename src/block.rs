@@ -37,6 +37,7 @@ impl Block {
         hex::encode(hasher.finalize())
     }
 
+    #[allow(dead_code)]
     pub fn is_valid(&self) -> bool {
         let recomputed = Self::compute_hash(
             self.index,

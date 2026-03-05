@@ -5,10 +5,10 @@ use crate::block::Block;
 
 
 const STORAGE_DIR: &str   = "/var/lib/latticed";
-const CHAIN_FILE: &str    = "chain.json";       // jsonl = one block per line
-const LOG_FILE: &str      = "latticed.log";
-const MAX_SIZE_BYTES: u64 = 1_000_000;          // 1MB
-const FLUSH_EVERY: usize  = 50;                 // blocks per flush
+pub const CHAIN_FILE: &str    = "chain.jsonl";       // jsonl = one block per line
+pub const LOG_FILE: &str      = "latticed.log";
+pub const MAX_SIZE_BYTES: u64 = 1_000_000;          // 1MB
+pub const FLUSH_EVERY: usize  = 50;                 // blocks per flush
 
 
 pub struct Storage {
