@@ -1,0 +1,13 @@
+[Unit]
+Description=Latticed - Tamper-evident filesystem audit daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/latticed
+Restart=on-failure
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=mulit-user.target
