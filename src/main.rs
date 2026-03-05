@@ -40,7 +40,7 @@ fn start() {
     let store = Storage::new();
 
     // Load existing chain or start fresh
-    let blockchain = match Storage::last_block() {
+    let blockchain = match store.last_block() {
         Some(last) => {
             println!("[Lattice-d] Loaded existing chain ({} blocks)", last.index);
             let mut c = Blockchain::new();
@@ -92,7 +92,7 @@ fn verify() {
 
     println!("[Lattice-d] Verifying chain integrity...");
 
-    let p = Storage::path(storage::CHAIN_FILE);
+    let p = Storage::new().path(storage::CHAIN_FILE);
     if !p.exists() {
         println!("[Lattice-d] No chain file found at {:?}", p);
         std::process::exit(1);
