@@ -1,13 +1,18 @@
 [Unit]
 Description=Latticed - Tamper-evident filesystem audit daemon
-After=network.target
+Documentation=https://github.com/rugbedbugg/Lattice-d
+After=local-fs.target
+Wants=local-fs.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/latticed
+ExecStart=/usr/bin/latticed start
 Restart=on-failure
 RestartSec=5
 User=root
+StandardOutput=journal
+StandarError=journal
+SyslogIdentifier=latticed
 
 [Install]
 WantedBy=mulit-user.target
