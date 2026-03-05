@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "Lattice-d"
-version = "0.1.3"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "clap",

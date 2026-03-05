@@ -78,7 +78,7 @@ fn start() {
         c.append(event.clone());
 
         let latest = c.blocks.last().unwrap().clone();
-        let log_entry = format!("[Latttice-d] Block #{} | {}", latest.index, latest.hash);
+        let log_entry = format!("[Lattice-d] Block #{} | {}", latest.index, latest.hash);
 
         println!("{}", log_entry);
         s.append_log(&log_entry);
