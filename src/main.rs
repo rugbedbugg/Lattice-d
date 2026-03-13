@@ -2,6 +2,7 @@ mod block;
 mod chain;
 mod watcher;
 mod storage;
+mod sign;
 
 use chain::Blockchain;
 use storage::Storage;
