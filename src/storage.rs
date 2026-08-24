@@ -2,6 +2,7 @@ use std::fs::{self, OpenOptions};
 use std::io::{Write, BufWriter};
 use std::path::{Path, PathBuf};
 use crate::block::Block;
+use crate::sign::{Checkpoint, ANCHOR_FILE};
 
 
 const STORAGE_DIR: &str   = "/var/lib/latticed";
@@ -155,6 +156,41 @@ impl Storage {
         }
         blocks
     }
+
+    //-----------------------------//
+    //--- signed checkpoints  ---//
+    //-----------------------------//
+    pub fn append_checkpoint(&self, cp: &Checkpoint) {
+        self.rotate(ANCHOR_FILE);
+
+        let file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.path(ANCHOR_FILE))
+            .expect("[Lattice-d] Failed to open checkpoint file");
+
+        let mut writer = BufWriter::new(file);
+        let line = serde_json::to_string(cp)
+            .expect("[Lattice-d] Failed to serialize checkpoint");
+        writeln!(writer, "{}", line)
+            .expect("[Lattice-d] Failed to write checkpoint");
+        writer.flush().expect("[Lattice-d] Failed to flush writer");
+    }
+
+    pub fn read_checkpoints(&self) -> Vec<Checkpoint> {
+        let p = self.path(ANCHOR_FILE);
+        if !p.exists() { return Vec::new(); }
+        let contents = fs::read_to_string(&p)
+            .unwrap_or_else(|e| panic!("[Lattice-d] Failed to read checkpoint file: {}", e));
+        contents.lines()
+            .filter(|l| !l.is_empty())
+            .enumerate()
+            .map(|(i, line)| {
+                serde_json::from_str(line)
+                    .unwrap_or_else(|_| panic!("[Lattice-d] Failed to parse checkpoint at line {}", i))
+            })
+            .collect()
+    }
 }
 
 
@@ -258,5 +294,41 @@ mod tests {
         let blocks = s.read_chain_blocks();
         let idxs: Vec<u64> = blocks.iter().map(|b| b.index).collect();
         assert_eq!(idxs, vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn test_checkpoint_roundtrip_persists() {
+        let tmp = tempdir().unwrap();
+        let s = Storage::with_dir(tmp.path());
+
+        let cp1 = crate::sign::Checkpoint {
+            height: 10,
+            head_hash: "ab".repeat(32),
+            timestamp: 1000,
+            signature: "cd".repeat(64),
+        };
+        let cp2 = crate::sign::Checkpoint {
+            height: 20,
+            head_hash: "ef".repeat(32),
+            timestamp: 2000,
+            signature: "12".repeat(64),
+        };
+
+        s.append_checkpoint(&cp1);
+        s.append_checkpoint(&cp2);
+
+        let loaded = s.read_checkpoints();
+        assert_eq!(loaded.len(), 2);
+        assert_eq!(loaded[0].height, 10);
+        assert_eq!(loaded[0].head_hash, "ab".repeat(32));
+        assert_eq!(loaded[1].height, 20);
+        assert_eq!(loaded[1].signature, "12".repeat(64));
+    }
+
+    #[test]
+    fn test_read_checkpoints_empty_when_missing() {
+        let tmp = tempdir().unwrap();
+        let s = Storage::with_dir(tmp.path());
+        assert!(s.read_checkpoints().is_empty());
     }
 }

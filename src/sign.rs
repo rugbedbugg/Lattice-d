@@ -5,8 +5,8 @@ use std::fs;
 use std::path::Path;
 
 
-const KEY_FILE: &str = "signing.key";
-const PUB_FILE: &str = "signing.pub";
+pub const KEY_FILE: &str = "signing.key";
+pub const PUB_FILE: &str = "signing.pub";
 pub const ANCHOR_FILE: &str = "checkpoints.jsonl";   // jsonl = one checkpoint per line
 
 

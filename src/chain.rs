@@ -23,6 +23,7 @@ impl Blockchain {
         self.blocks.push(block);
     }
 
+    #[allow(dead_code)]
     pub fn is_valid(&self) -> bool {
         for i in 1..self.blocks.len() {
             let current     = &self.blocks[i];
