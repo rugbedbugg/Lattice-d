@@ -198,6 +198,10 @@ cargo test
 
 Covers: chain hash chaining, checkpoint sign/verify, config parsing, CLI argument handling.
 
+## License
+
+MIT, see [LICENSE](LICENSE).
+
 ## Links
 
 - **Repo:** https://github.com/rugbedbugg/Lattice-d
