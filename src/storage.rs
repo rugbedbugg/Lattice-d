@@ -4,7 +4,6 @@ use std::fs::{self, OpenOptions};
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
-const STORAGE_DIR: &str = "/var/lib/latticed";
 pub const CHAIN_FILE: &str = "chain.jsonl"; // jsonl = one block per line
 pub const LOG_FILE: &str = "latticed.log";
 pub const MAX_SIZE_BYTES: u64 = 1_000_000; // 1MB
@@ -17,10 +16,6 @@ pub struct Storage {
 }
 
 impl Storage {
-    pub fn new() -> Self {
-        Self::with_dir(Path::new(STORAGE_DIR))
-    }
-
     pub fn with_dir(dir: &Path) -> Self {
         fs::create_dir_all(dir).expect("[Lattice-d] Failed to create storage dir");
         Storage {

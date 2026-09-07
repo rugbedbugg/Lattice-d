@@ -12,6 +12,8 @@ pub fn watch(paths: Vec<&str>, mut on_event: impl FnMut(String)) {
             .unwrap();
     }
 
+    println!("[Lattice-d] Watching configured paths");
+
     for res in rx {
         match res {
             Ok(event) => {

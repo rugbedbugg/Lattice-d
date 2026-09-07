@@ -17,6 +17,9 @@ const CHECKPOINT_INTERVAL_SECS: u64 = 60;
 #[derive(Parser)]
 #[command(name = "latticed", about = "Tamper-evident filesystem audit daemon")]
 struct Cli {
+    /// Directory for chain files and checkpoint keys
+    #[arg(long, global = true, default_value = "/var/lib/latticed")]
+    storage_dir: std::path::PathBuf,
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -24,7 +27,11 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Start the daemon
-    Start,
+    Start {
+        /// Paths to monitor (repeat for multiple paths)
+        #[arg(long, default_values = ["/etc", "/var/log", "/bin", "/usr/bin"])]
+        watch: Vec<String>,
+    },
     /// Verify chain integrity and signed checkpoints
     Verify,
     /// Generate an Ed25519 signing keypair for chain checkpoints
@@ -34,15 +41,19 @@ enum Commands {
 fn main() {
     let cli = Cli::parse();
 
-    match cli.command.unwrap_or(Commands::Start) {
-        Commands::Start => start(),
-        Commands::Verify => verify(),
-        Commands::Keygen => keygen(),
+    match cli.command.unwrap_or_else(|| Commands::Start {
+        watch: ["/etc", "/var/log", "/bin", "/usr/bin"]
+            .map(String::from)
+            .to_vec(),
+    }) {
+        Commands::Start { watch } => start(&cli.storage_dir, watch),
+        Commands::Verify => verify(&cli.storage_dir),
+        Commands::Keygen => keygen(&cli.storage_dir),
     }
 }
 
-fn keygen() {
-    let store = Storage::new();
+fn keygen(dir: &std::path::Path) {
+    let store = Storage::with_dir(dir);
     let pub_path = store.path(PUB_FILE);
     if pub_path.exists() {
         println!(
@@ -79,10 +90,10 @@ fn load_signing_key_if_present(store: &Storage) -> Option<SigningKey> {
     Some(sign::load_signing_key(&key_path))
 }
 
-fn start() {
+fn start(dir: &std::path::Path, watched_paths: Vec<String>) {
     println!("[Lattice-d] starting...");
 
-    let store = Storage::new();
+    let store = Storage::with_dir(dir);
 
     // Load existing chain or start fresh
     let blockchain = match store.last_block() {
@@ -166,7 +177,7 @@ fn start() {
         });
     }
 
-    let watched_paths = vec!["/etc", "/var/log", "/bin", "/usr/bin"];
+    let watched_paths = watched_paths.iter().map(String::as_str).collect();
 
     watcher::watch(watched_paths, |event| {
         let mut c = chain.lock().unwrap();
@@ -183,12 +194,12 @@ fn start() {
     });
 }
 
-fn verify() {
+fn verify(dir: &std::path::Path) {
     use crate::block::Block;
 
     println!("[Lattice-d] Verifying chain integrity...");
 
-    let store = Storage::new();
+    let store = Storage::with_dir(dir);
     let p = store.path(storage::CHAIN_FILE);
     if !p.exists() {
         println!("[Lattice-d] No chain file found at {:?}", p);
@@ -305,6 +316,36 @@ fn verify() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cli_preserves_default_paths() {
+        let cli = Cli::try_parse_from(["latticed", "start"]).unwrap();
+        assert_eq!(cli.storage_dir, std::path::Path::new("/var/lib/latticed"));
+        let Some(Commands::Start { watch }) = cli.command else {
+            panic!("expected start")
+        };
+        assert_eq!(watch, ["/etc", "/var/log", "/bin", "/usr/bin"]);
+    }
+
+    #[test]
+    fn cli_custom_watch_replaces_system_defaults() {
+        let cli = Cli::try_parse_from([
+            "latticed",
+            "--storage-dir",
+            "/tmp/store",
+            "start",
+            "--watch",
+            "/tmp/one",
+            "--watch",
+            "/tmp/two",
+        ])
+        .unwrap();
+        assert_eq!(cli.storage_dir, std::path::Path::new("/tmp/store"));
+        let Some(Commands::Start { watch }) = cli.command else {
+            panic!("expected start")
+        };
+        assert_eq!(watch, ["/tmp/one", "/tmp/two"]);
+    }
 
     #[test]
     fn test_genesis_block_exists() {
