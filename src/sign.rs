@@ -1,14 +1,12 @@
+use chrono::Utc;
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
-use chrono::Utc;
 use std::fs;
 use std::path::Path;
 
-
 pub const KEY_FILE: &str = "signing.key";
 pub const PUB_FILE: &str = "signing.pub";
-pub const ANCHOR_FILE: &str = "checkpoints.jsonl";   // jsonl = one checkpoint per line
-
+pub const ANCHOR_FILE: &str = "checkpoints.jsonl"; // jsonl = one checkpoint per line
 
 //-------------------------------------//
 //--- signed chain-head checkpoints ---//
@@ -31,7 +29,6 @@ impl Checkpoint {
     }
 }
 
-
 //-----------------------------//
 //--- keypair management  ---//
 //-----------------------------//
@@ -41,8 +38,11 @@ pub fn generate_keypair(dir: &Path) {
 
     fs::write(dir.join(KEY_FILE), hex::encode(sk.to_bytes()))
         .expect("[Lattice-d] Failed to write signing key");
-    fs::write(dir.join(PUB_FILE), hex::encode(sk.verifying_key().to_bytes()))
-        .expect("[Lattice-d] Failed to write public key");
+    fs::write(
+        dir.join(PUB_FILE),
+        hex::encode(sk.verifying_key().to_bytes()),
+    )
+    .expect("[Lattice-d] Failed to write public key");
 
     println!("[Lattice-d] Generated keypair:");
     println!("  secret: {}", dir.join(KEY_FILE).display());
@@ -66,10 +66,8 @@ pub fn load_verifying_key(path: &Path) -> VerifyingKey {
         .expect("[Lattice-d] Invalid hex in public key")
         .try_into()
         .expect("[Lattice-d] Public key must be 32 bytes");
-    VerifyingKey::from_bytes(&bytes)
-        .expect("[Lattice-d] Invalid public key bytes")
+    VerifyingKey::from_bytes(&bytes).expect("[Lattice-d] Invalid public key bytes")
 }
-
 
 //-------------------------------//
 //--- checkpoint sign / verify ---//
@@ -87,12 +85,12 @@ pub fn create_checkpoint(height: u64, head_hash: &str, key: &SigningKey) -> Chec
 }
 
 pub fn verify_checkpoint(cp: &Checkpoint, vk: &VerifyingKey) -> bool {
-    hex::decode(&cp.signature).ok()
+    hex::decode(&cp.signature)
+        .ok()
         .and_then(|b| <[u8; 64]>::try_from(b).ok())
         .map(|b| vk.verify(&cp.message(), &Signature::from_bytes(&b)).is_ok())
         .unwrap_or(false)
 }
-
 
 #[cfg(test)]
 mod tests {

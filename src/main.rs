@@ -1,19 +1,18 @@
 mod block;
 mod chain;
-mod watcher;
-mod storage;
 mod sign;
+mod storage;
+mod watcher;
 
 use chain::Blockchain;
-use storage::Storage;
+use clap::{Parser, Subcommand};
 use ed25519_dalek::SigningKey;
-use sign::{PUB_FILE, KEY_FILE};
+use sign::{KEY_FILE, PUB_FILE};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use clap::{Parser, Subcommand};
+use storage::Storage;
 
 const CHECKPOINT_INTERVAL_SECS: u64 = 60;
-
 
 #[derive(Parser)]
 #[command(name = "latticed", about = "Tamper-evident filesystem audit daemon")]
@@ -42,12 +41,14 @@ fn main() {
     }
 }
 
-
 fn keygen() {
     let store = Storage::new();
     let pub_path = store.path(PUB_FILE);
     if pub_path.exists() {
-        println!("[Lattice-d] Keypair already exists at {:?}", store.path(KEY_FILE));
+        println!(
+            "[Lattice-d] Keypair already exists at {:?}",
+            store.path(KEY_FILE)
+        );
         println!("[Lattice-d] Delete it first if you want to regenerate.");
         std::process::exit(1);
     }
@@ -56,9 +57,18 @@ fn keygen() {
 
     println!();
     println!("[Lattice-d] IMPORTANT: keep the secret key OFF this machine.");
-    println!("[Lattice-d]   1. Copy {:?} to external media or another host.", store.path(KEY_FILE));
-    println!("[Lattice-d]   2. DELETE {:?} from this machine.", store.path(KEY_FILE));
-    println!("[Lattice-d] Only {} must remain locally (verify reads it).", PUB_FILE);
+    println!(
+        "[Lattice-d]   1. Copy {:?} to external media or another host.",
+        store.path(KEY_FILE)
+    );
+    println!(
+        "[Lattice-d]   2. DELETE {:?} from this machine.",
+        store.path(KEY_FILE)
+    );
+    println!(
+        "[Lattice-d] Only {} must remain locally (verify reads it).",
+        PUB_FILE
+    );
 }
 
 fn load_signing_key_if_present(store: &Storage) -> Option<SigningKey> {
@@ -99,7 +109,10 @@ fn start() {
         load_signing_key_if_present(&s)
     };
     match &signing_key_guard {
-        Some(_) => println!("[Lattice-d] Signed checkpoints enabled (every {}s)", CHECKPOINT_INTERVAL_SECS),
+        Some(_) => println!(
+            "[Lattice-d] Signed checkpoints enabled (every {}s)",
+            CHECKPOINT_INTERVAL_SECS
+        ),
         None => println!(
             "[Lattice-d] WARNING: no signing.key found --> running WITHOUT signed checkpoints.\
              \n[Lattice-d] A root attacker could rewrite the entire chain undetected. Run `latticed keygen`."
@@ -122,13 +135,17 @@ fn start() {
             let head = c.blocks.last().unwrap();
             let cp = sign::create_checkpoint(head.index, &head.hash, sk);
             s.append_checkpoint(&cp);
-            println!("[Lattice-d] Final checkpoint written at height {}", cp.height);
+            println!(
+                "[Lattice-d] Final checkpoint written at height {}",
+                cp.height
+            );
         }
 
         s.flush();
         println!("[Lattice-d] Flush complete. Goodbye.");
         std::process::exit(0);
-    }).expect("[Lattice-d] Failed to set signal handler");
+    })
+    .expect("[Lattice-d] Failed to set signal handler");
 
     //---------------------------//
     //--- Checkpoint thread  ---//
@@ -136,14 +153,16 @@ fn start() {
     if let Some(sk) = signing_key_guard {
         let chain_cp = Arc::clone(&chain);
         let store_cp = Arc::clone(&store);
-        std::thread::spawn(move || loop {
-            std::thread::sleep(Duration::from_secs(CHECKPOINT_INTERVAL_SECS));
-            let c = chain_cp.lock().unwrap();
-            let s = store_cp.lock().unwrap();
-            let head = c.blocks.last().unwrap();
-            let cp = sign::create_checkpoint(head.index, &head.hash, &sk);
-            s.append_checkpoint(&cp);
-            println!("[Lattice-d] Checkpoint signed at height {}", cp.height);
+        std::thread::spawn(move || {
+            loop {
+                std::thread::sleep(Duration::from_secs(CHECKPOINT_INTERVAL_SECS));
+                let c = chain_cp.lock().unwrap();
+                let s = store_cp.lock().unwrap();
+                let head = c.blocks.last().unwrap();
+                let cp = sign::create_checkpoint(head.index, &head.hash, &sk);
+                s.append_checkpoint(&cp);
+                println!("[Lattice-d] Checkpoint signed at height {}", cp.height);
+            }
         });
     }
 
@@ -187,7 +206,7 @@ fn verify() {
 
     let mut ok = true;
     for i in 1..blocks.len() {
-        let current  = &blocks[i];
+        let current = &blocks[i];
         let previous = &blocks[i - 1];
 
         // recompute hash and compare
@@ -253,7 +272,9 @@ fn verify() {
             // latest signed head must match the actual block in the local chain.
             // catches a full regeneration of chain.jsonl even if hashes are internally consistent
             if let Some(latest) = checkpoints.last() {
-                let anchored = blocks.iter().any(|b| b.index == latest.height && b.hash == latest.head_hash);
+                let anchored = blocks
+                    .iter()
+                    .any(|b| b.index == latest.height && b.hash == latest.head_hash);
                 if !anchored {
                     println!(
                         "[Lattice-d] TAMPER DETECTED at checkpoint #{} --> chain head mismatch (chain rewritten?)",
@@ -280,7 +301,6 @@ fn verify() {
         std::process::exit(1);
     }
 }
-
 
 #[cfg(test)]
 mod tests {
