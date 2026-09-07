@@ -1,0 +1,24 @@
+[tools]
+shellcheck = "0.10.0"
+
+[tasks.setup]
+run = "rustup show active-toolchain"
+
+[tasks.format]
+run = "cargo fmt --all -- --check"
+
+[tasks.lint]
+run = "cargo clippy --locked --all-targets -- -D warnings && shellcheck latticed_test.sh"
+
+[tasks.build]
+run = "cargo build --locked"
+
+[tasks.test]
+run = "cargo test --locked"
+
+[tasks.integration]
+depends = ["build"]
+run = "bash latticed_test.sh"
+
+[tasks.check]
+run = "mise run format && mise run lint && mise run test && mise run integration"

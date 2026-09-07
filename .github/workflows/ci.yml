@@ -2,8 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'ci/**']
   pull_request:
+  workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -12,41 +14,22 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  CARGO_TERM_COLOR: always
-
 jobs:
   check:
-    name: format, lint, build and test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - name: Check out the repository
-        uses: actions/checkout@v4
-
-      - name: Install the pinned Rust toolchain
-        uses: dtolnay/rust-toolchain@1.98.0
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: mise run setup
+      - uses: Swatinem/rust-cache@v2
+      - run: mise run check
+      - name: Record tested binary checksum
+        run: sha256sum target/debug/latticed > SHA256SUMS
+      - uses: actions/upload-artifact@v4
         with:
-          components: rustfmt, clippy
-
-      - name: Cache Cargo dependencies and build output
-        uses: actions/cache@v4
-        with:
+          name: latticed-linux-x86_64
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Check formatting
-        run: cargo fmt --all -- --check
-
-      - name: Run Clippy
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
-
-      - name: Build
-        run: cargo build --workspace --all-targets --locked
-
-      - name: Run tests
-        run: cargo test --workspace --locked
+            target/debug/latticed
+            SHA256SUMS
+          if-no-files-found: error
