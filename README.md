@@ -1,5 +1,7 @@
 # Lattice-d
 
+[![CI](https://github.com/rugbedbugg/Lattice-d/actions/workflows/ci.yml/badge.svg)](https://github.com/rugbedbugg/Lattice-d/actions/workflows/ci.yml)
+
 ![GitHub last commit](https://img.shields.io/github/last-commit/rugbedbugg/Lattice-d?style=for-the-badge&labelColor=000000)
 ![GitHub repo size](https://img.shields.io/github/repo-size/rugbedbugg/Lattice-d?style=for-the-badge&labelColor=000000)
 ![Stars](https://img.shields.io/github/stars/rugbedbugg/Lattice-d?style=for-the-badge&labelColor=000000)
@@ -193,10 +195,16 @@ Lattice-d/
 ## Testing
 
 ```bash
-cargo test
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo build --workspace --all-targets --locked
+cargo test --workspace --locked
 ```
 
-Covers: chain hash chaining, checkpoint sign/verify, config parsing, CLI argument handling.
+The CI workflow runs these checks with the pinned Rust toolchain from
+`rust-toolchain.toml` on pushes to `main` and pull requests. The tests cover
+chain hash chaining, checkpoint signing and verification, config parsing, and
+CLI argument handling.
 
 ## License
 
